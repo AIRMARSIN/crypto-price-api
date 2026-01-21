@@ -7,6 +7,7 @@ const COINGECKO_URL =
 async function fetchAndCachePrices() {
   const maxRetries = 3;
   let retries = 0;
+  console.log("API Key present:", !!process.env.COINGECKO_API_KEY);
 
   while (retries < maxRetries) {
     try {
