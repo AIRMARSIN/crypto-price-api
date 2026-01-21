@@ -126,5 +126,5 @@ Run locally:
 npm run dev
 
 Access API:
-http://localhost:5000/api/v1/prices
-http://localhost:5000/api/v1/health
+https://crypto-price-api-7m83.onrender.com/api/v1/prices
+https://crypto-price-api-7m83.onrender.com/api/v1/health
