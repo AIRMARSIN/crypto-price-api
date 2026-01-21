@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crypto Prices Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 p-6 font-sans">
+    <h1 class="text-3xl font-bold mb-6 text-center">Crypto Prices Demo</h1>
+
+    <!-- Status -->
+    <div id="status" class="text-center mb-4 text-gray-700">
+      Loading prices...
+    </div>
+
+    <!-- Search Input -->
+    <div class="mb-4 text-center">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search by symbol (e.g., BTC)"
+        class="border p-2 rounded w-1/2"
+      />
+    </div>
+
+    <!-- Prices Grid -->
+    <div
+      id="prices"
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+    ></div>
+
+    <script>
+      const API_URL = "http://localhost:5000/api/v1/prices";
+      const API_KEY = "key123"; // Your API key
+
+      const status = document.getElementById("status");
+      const container = document.getElementById("prices");
+      const searchInput = document.getElementById("searchInput");
+
+      // Fetch and display crypto prices
+      async function fetchPrices() {
+        try {
+          const res = await fetch(API_URL, {
+            headers: { "x-api-key": API_KEY },
+          });
+          const data = await res.json();
+
+          if (res.status !== 200) {
+            status.textContent = "Error: " + data.error;
+            return;
+          }
+
+          status.textContent = `Last updated: ${new Date(data.updatedAt).toLocaleTimeString()}`;
+          container.innerHTML = "";
+
+          data.data.forEach((coin) => {
+            const card = document.createElement("div");
+            card.className =
+              "bg-white p-4 rounded shadow hover:shadow-lg transition";
+            card.innerHTML = `
+            <div class="flex items-center gap-3">
+              <img src="${coin.image}" alt="${coin.name}" class="w-10 h-10">
+              <h2 class="font-bold text-lg">${coin.name} (${coin.symbol})</h2>
+            </div>
+            <p class="mt-2">Price: $${coin.price ? coin.price.toLocaleString() : "N/A"}</p>
+            <p>Market Cap: $${coin.marketCap ? coin.marketCap.toLocaleString() : "N/A"}</p>
+            <p class="text-sm ${coin.change24h && coin.change24h >= 0 ? "text-green-600" : "text-red-600"}">
+              24h Change: ${coin.change24h ? coin.change24h.toFixed(2) : "N/A"}%
+            </p>
+          `;
+            container.appendChild(card);
+          });
+        } catch (err) {
+          status.textContent =
+            "Failed to fetch prices. Make sure your backend is running and CORS is enabled.";
+          console.error(err);
+        }
+      }
+
+      // Search/filter functionality
+      searchInput.addEventListener("input", () => {
+        const filter = searchInput.value.toLowerCase();
+        document.querySelectorAll("#prices > div").forEach((card) => {
+          const symbol = card.querySelector("h2").textContent.toLowerCase();
+          card.style.display = symbol.includes(filter) ? "block" : "none";
+        });
+      });
+
+      // Initial fetch + update every 3 minutes
+      fetchPrices();
+      setInterval(fetchPrices, 180000); // 180000ms = 3 minutes
+    </script>
+  </body>
+</html>
