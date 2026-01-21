@@ -16,9 +16,13 @@ async function fetchAndCachePrices() {
           order: "market_cap_desc",
           per_page: 100,
           page: 1,
-          sparkline: false,
-          ...(process.env.COINGECKO_API_KEY && { x_cg_pro_api_key: process.env.COINGECKO_API_KEY })
-        }
+          sparkline: false
+        },
+        ...(process.env.COINGECKO_API_KEY && {
+          headers: {
+            "x-cg-pro-api-key": process.env.COINGECKO_API_KEY
+          }
+        })
       });
 
       if (Array.isArray(response.data)) {
