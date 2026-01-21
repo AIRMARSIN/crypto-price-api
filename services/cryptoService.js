@@ -16,7 +16,8 @@ async function fetchAndCachePrices() {
           order: "market_cap_desc",
           per_page: 100,
           page: 1,
-          sparkline: false
+          sparkline: false,
+          ...(process.env.COINGECKO_API_KEY && { x_cg_pro_api_key: process.env.COINGECKO_API_KEY })
         }
       });
 
