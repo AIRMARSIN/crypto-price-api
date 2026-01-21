@@ -11,7 +11,7 @@ Perfect for frontend developers, portfolios, and demo projects.
 
 ## 🌐 Base URL
 
-http://localhost:5000/api/v1
+https://crypto-price-api-7m83.onrender.com/
 
 
 
