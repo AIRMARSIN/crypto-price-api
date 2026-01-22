@@ -38,10 +38,9 @@ async function fetchAndCachePrices() {
     } catch (error) {
       if (error.response?.status === 429) {
         retries++;
-        const waitTime = Math.pow(2, retries) * 1000; // Exponential backoff: 2s, 4s, 8s
-        console.warn(`Rate limited (429). Retrying in ${waitTime}ms... (${retries}/${maxRetries})`);
-        console.warn("Rate limit headers:", error.response.headers);
-        await sleep(waitTime);
+        const retryAfter = parseInt(error.response.headers['retry-after']) * 1000 || Math.pow(2, retries) * 1000;
+        console.warn(`Rate limited (429). Retry-After: ${retryAfter}ms. Attempt ${retries}/${maxRetries}`);
+        await sleep(retryAfter);
       } else {
         console.error("Failed to update prices:", error.message);
         if (error.response) {
