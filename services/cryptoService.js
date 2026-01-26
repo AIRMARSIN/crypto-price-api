@@ -1,110 +1,75 @@
 const axios = require("axios");
 const { setPrices } = require("../utils/cache");
 
-const BINANCE_URL = "https://api.binance.com/api/v3/ticker/price";
-const COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets";
+const BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price";
+const BINANCE_INFO_URL = "https://api.binance.com/api/v3/exchangeInfo";
 
-// Top cryptocurrencies by market cap to fetch from Binance
+// Top 50 cryptocurrencies by market cap (Binance trading pairs)
 const TOP_CRYPTOS = [
-  "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
-  "DOGEUSDT", "SOLUSDT", "MATICUSDT", "LTCUSDT", "LINKUSDT",
-  "UNIUSDT", "AVAXUSDT", "DOTUSDT", "DASUSDT", "TRXUSDT",
-  "XLMUSDT", "WBTCUSDT", "ATOMUSDT", "GMTUSDT", "ARBUSDT",
-  "OPUSDT", "FTMUSDT", "INJUSDT", "AAVEUSDT", "MKRUSDT",
-  "ZECUSDT", "SUIUSDT", "KASUSDT", "APOUSDT", "NEARUSDT"
+  "BTC", "ETH", "BNB", "XRP", "ADA", "DOGE", "SOL", "MATIC", "LTC", "LINK",
+  "UNI", "AVAX", "DOT", "DA", "TRX", "XLM", "WBTC", "ATOM", "GMT", "ARB",
+  "OP", "FTM", "INJ", "AAVE", "MKR", "ZEC", "SUI", "KAS", "APO", "NEAR",
+  "FLOW", "SAND", "GALA", "MANA", "AEUR", "CELO", "FIL", "HBAR", "ICP", "VET"
 ];
 
 async function fetchFromBinance() {
   try {
-    console.log("Fetching prices from Binance...");
-    const response = await axios.get(BINANCE_URL, { timeout: 10000 });
+    console.log("Fetching crypto prices from Binance...");
     
-    if (!Array.isArray(response.data)) {
-      throw new Error("Unexpected Binance response format");
+    // Fetch all prices
+    const pricesResponse = await axios.get(BINANCE_PRICE_URL, { timeout: 10000 });
+    
+    if (!Array.isArray(pricesResponse.data)) {
+      throw new Error("Unexpected response format from Binance prices");
     }
 
-    // Filter to top cryptocurrencies and transform to match our format
-    const topPrices = response.data
-      .filter(item => TOP_CRYPTOS.includes(item.symbol))
-      .map((item, index) => ({
-        id: item.symbol.toLowerCase().replace('usdt', ''),
-        name: item.symbol.replace('usdt', '').toUpperCase(),
-        symbol: item.symbol.replace('usdt', '').toLowerCase(),
-        current_price: parseFloat(item.price),
-        market_cap_rank: index + 1
-      }))
-      .sort((a, b) => a.market_cap_rank - b.market_cap_rank);
+    // Get prices map for quick lookup
+    const pricesMap = {};
+    pricesResponse.data.forEach(item => {
+      const symbol = item.symbol.replace('USDT', '');
+      pricesMap[symbol] = parseFloat(item.price);
+    });
+
+    // Filter to top cryptos and build response
+    const topPrices = TOP_CRYPTOS
+      .map((symbol, index) => {
+        const price = pricesMap[symbol];
+        if (!price) return null;
+        
+        return {
+          id: symbol.toLowerCase(),
+          name: symbol.toUpperCase(),
+          symbol: symbol.toLowerCase(),
+          current_price: price,
+          market_cap_rank: index + 1
+        };
+      })
+      .filter(item => item !== null);
 
     if (topPrices.length > 0) {
       setPrices(topPrices);
-      console.log(`Binance: Successfully cached ${topPrices.length} crypto prices`);
+      console.log(`✓ Successfully fetched and cached ${topPrices.length} cryptocurrencies from Binance`);
       return true;
-    }
-    return false;
-  } catch (error) {
-    console.warn("Binance fetch failed:", error.message);
-    return false;
-  }
-}
-
-async function fetchFromCoinGecko() {
-  const maxRetries = 2;
-  let retries = 0;
-
-  while (retries < maxRetries) {
-    try {
-      console.log("Fetching prices from CoinGecko...");
-      const response = await axios.get(COINGECKO_URL, {
-        params: {
-          vs_currency: "usd",
-          order: "market_cap_desc",
-          per_page: 100,
-          page: 1,
-          sparkline: false
-        },
-        timeout: 10000,
-        ...(process.env.COINGECKO_API_KEY && {
-          headers: {
-            "x-cg-pro-api-key": process.env.COINGECKO_API_KEY
-          }
-        })
-      });
-
-      if (Array.isArray(response.data)) {
-        setPrices(response.data);
-        console.log(`CoinGecko: Successfully cached ${response.data.length} crypto prices`);
-        return true;
-      }
+    } else {
+      console.error("No prices found from Binance");
       return false;
-
-    } catch (error) {
-      if (error.response?.status === 429) {
-        retries++;
-        if (retries >= maxRetries) {
-          console.error("CoinGecko: Rate limited, giving up");
-          return false;
-        }
-        const retryAfter = parseInt(error.response.headers['retry-after']) * 1000 || 120000;
-        console.warn(`CoinGecko: Rate limited (429). Waiting ${retryAfter}ms before retry (${retries}/${maxRetries})`);
-        await sleep(retryAfter);
-      } else {
-        console.error("CoinGecko fetch failed:", error.message);
-        return false;
-      }
     }
+
+  } catch (error) {
+    console.error("✗ Binance fetch failed:", error.message);
+    if (error.response) {
+      console.error("  Status:", error.response.status);
+    }
+    return false;
   }
-  return false;
 }
 
 async function fetchAndCachePrices() {
-  console.log("Starting crypto price update...");
+  console.log("Starting crypto price fetch at", new Date().toISOString());
+  const success = await fetchFromBinance();
   
-  // Try Binance first (free, no rate limits)
-  const binanceSuccess = await fetchFromBinance();
-  
-  if (!binanceSuccess) {
-    // Fall back to CoinGecko if Binance fails
-    await fetchFromCoinGecko();
+  if (!success) {
+    console.error("Failed to fetch prices. Cache will remain unchanged.");
   }
 }
 
