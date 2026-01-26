@@ -38,8 +38,14 @@ async function fetchAndCachePrices() {
     } catch (error) {
       if (error.response?.status === 429) {
         retries++;
-        const retryAfter = parseInt(error.response.headers['retry-after']) * 1000 || Math.pow(2, retries) * 1000;
-        console.warn(`Rate limited (429). Retry-After: ${retryAfter}ms. Attempt ${retries}/${maxRetries}`);
+        if (retries >= maxRetries) {
+          console.error("Failed to update prices after 3 retries due to rate limiting");
+          return;
+        }
+        // Use server's retry-after header or default to exponential backoff (min 60s)
+        const serverRetryAfter = parseInt(error.response.headers['retry-after']) * 1000;
+        const retryAfter = serverRetryAfter || (60000 * Math.pow(2, retries - 1));
+        console.warn(`Rate limited (429). Waiting ${retryAfter}ms before retry. Attempt ${retries}/${maxRetries}`);
         await sleep(retryAfter);
       } else {
         console.error("Failed to update prices:", error.message);
@@ -51,8 +57,6 @@ async function fetchAndCachePrices() {
       }
     }
   }
-
-  console.error("Failed to update prices after 3 retries");
 }
 
 function sleep(ms) {
