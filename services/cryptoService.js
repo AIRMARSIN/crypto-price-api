@@ -62,3 +62,6 @@ function sleep(ms) {
 module.exports = {
   fetchAndCachePrices
 };
+
+// Add this to middleware/apiKeyAuth.js
+const apiKey = req.headers["x-api-key"] || req.query["api_key"];

@@ -1,5 +1,6 @@
 function apiKeyAuth(req, res, next) {
-  const apiKey = req.headers["x-api-key"];
+  // Add this to middleware/apiKeyAuth.js
+const apiKey = req.headers["x-api-key"] || req.query["api_key"];
 
   if (!apiKey) {
     return res.status(401).json({
