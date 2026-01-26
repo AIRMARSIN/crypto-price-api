@@ -1,16 +1,59 @@
 const axios = require("axios");
 const { setPrices } = require("../utils/cache");
 
-const COINGECKO_URL =
-  "https://api.coingecko.com/api/v3/coins/markets";
+const BINANCE_URL = "https://api.binance.com/api/v3/ticker/price";
+const COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets";
 
-async function fetchAndCachePrices() {
-  const maxRetries = 3;
+// Top cryptocurrencies by market cap to fetch from Binance
+const TOP_CRYPTOS = [
+  "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+  "DOGEUSDT", "SOLUSDT", "MATICUSDT", "LTCUSDT", "LINKUSDT",
+  "UNIUSDT", "AVAXUSDT", "DOTUSDT", "DASUSDT", "TRXUSDT",
+  "XLMUSDT", "WBTCUSDT", "ATOMUSDT", "GMTUSDT", "ARBUSDT",
+  "OPUSDT", "FTMUSDT", "INJUSDT", "AAVEUSDT", "MKRUSDT",
+  "ZECUSDT", "SUIUSDT", "KASUSDT", "APOUSDT", "NEARUSDT"
+];
+
+async function fetchFromBinance() {
+  try {
+    console.log("Fetching prices from Binance...");
+    const response = await axios.get(BINANCE_URL, { timeout: 10000 });
+    
+    if (!Array.isArray(response.data)) {
+      throw new Error("Unexpected Binance response format");
+    }
+
+    // Filter to top cryptocurrencies and transform to match our format
+    const topPrices = response.data
+      .filter(item => TOP_CRYPTOS.includes(item.symbol))
+      .map((item, index) => ({
+        id: item.symbol.toLowerCase().replace('usdt', ''),
+        name: item.symbol.replace('usdt', '').toUpperCase(),
+        symbol: item.symbol.replace('usdt', '').toLowerCase(),
+        current_price: parseFloat(item.price),
+        market_cap_rank: index + 1
+      }))
+      .sort((a, b) => a.market_cap_rank - b.market_cap_rank);
+
+    if (topPrices.length > 0) {
+      setPrices(topPrices);
+      console.log(`Binance: Successfully cached ${topPrices.length} crypto prices`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.warn("Binance fetch failed:", error.message);
+    return false;
+  }
+}
+
+async function fetchFromCoinGecko() {
+  const maxRetries = 2;
   let retries = 0;
-  console.log("API Key present:", !!process.env.COINGECKO_API_KEY);
 
   while (retries < maxRetries) {
     try {
+      console.log("Fetching prices from CoinGecko...");
       const response = await axios.get(COINGECKO_URL, {
         params: {
           vs_currency: "usd",
@@ -19,6 +62,7 @@ async function fetchAndCachePrices() {
           page: 1,
           sparkline: false
         },
+        timeout: 10000,
         ...(process.env.COINGECKO_API_KEY && {
           headers: {
             "x-cg-pro-api-key": process.env.COINGECKO_API_KEY
@@ -28,34 +72,39 @@ async function fetchAndCachePrices() {
 
       if (Array.isArray(response.data)) {
         setPrices(response.data);
-        console.log("Crypto prices updated:", response.data.length);
-        return;
-      } else {
-        console.error("Unexpected response format from CoinGecko");
-        return;
+        console.log(`CoinGecko: Successfully cached ${response.data.length} crypto prices`);
+        return true;
       }
+      return false;
 
     } catch (error) {
       if (error.response?.status === 429) {
         retries++;
         if (retries >= maxRetries) {
-          console.error("Failed to update prices after 3 retries due to rate limiting");
-          return;
+          console.error("CoinGecko: Rate limited, giving up");
+          return false;
         }
-        // Use server's retry-after header or default to exponential backoff (min 60s)
-        const serverRetryAfter = parseInt(error.response.headers['retry-after']) * 1000;
-        const retryAfter = serverRetryAfter || (60000 * Math.pow(2, retries - 1));
-        console.warn(`Rate limited (429). Waiting ${retryAfter}ms before retry. Attempt ${retries}/${maxRetries}`);
+        const retryAfter = parseInt(error.response.headers['retry-after']) * 1000 || 120000;
+        console.warn(`CoinGecko: Rate limited (429). Waiting ${retryAfter}ms before retry (${retries}/${maxRetries})`);
         await sleep(retryAfter);
       } else {
-        console.error("Failed to update prices:", error.message);
-        if (error.response) {
-          console.error("Response status:", error.response.status);
-          console.error("Response data:", error.response.data);
-        }
-        return;
+        console.error("CoinGecko fetch failed:", error.message);
+        return false;
       }
     }
+  }
+  return false;
+}
+
+async function fetchAndCachePrices() {
+  console.log("Starting crypto price update...");
+  
+  // Try Binance first (free, no rate limits)
+  const binanceSuccess = await fetchFromBinance();
+  
+  if (!binanceSuccess) {
+    // Fall back to CoinGecko if Binance fails
+    await fetchFromCoinGecko();
   }
 }
 
