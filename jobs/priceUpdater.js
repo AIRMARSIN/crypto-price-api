@@ -2,8 +2,8 @@ const cron = require("node-cron");
 const { fetchAndCachePrices } = require("../services/cryptoService");
 
 function startPriceUpdater() {
-  // Every 3 minutes
-  cron.schedule("*/3 * * * *", async () => {
+  // Every 30 minutes (stays within free tier 10k monthly limit)
+  cron.schedule("*/30 * * * *", async () => {
     console.log("Updating crypto prices...");
     await fetchAndCachePrices();
   });
