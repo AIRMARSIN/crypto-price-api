@@ -7,6 +7,14 @@ const { fetchAndCachePrices } = require("./services/cryptoService");
 const { startPriceUpdater } = require("./jobs/priceUpdater");
 const healthRoute = require("./routes/health");
 
+const axios = require("axios");
+
+let priceCache = {};
+let lastUpdated = null;
+let isFetching = false;
+let blockedUntil = 0;
+
+
 
 const app = express();
 
