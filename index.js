@@ -21,8 +21,12 @@ app.use("/api/v1", priceRoutes);
 app.use("/api/v1", healthRoute);
 
 
-// Fetch prices once at startup
-fetchAndCachePrices();
+// Fetch prices after a 5s delay to avoid immediate rate-limit on startup
+setTimeout(() => {
+  console.log("Starting initial price fetch...");
+  fetchAndCachePrices();
+}, 5000);
+
 startPriceUpdater();
 
 
