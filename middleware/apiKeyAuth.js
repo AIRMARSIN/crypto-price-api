@@ -1,5 +1,10 @@
 function apiKeyAuth(req, res, next) {
-  const apiKey = req.headers["x-api-key"];
+  // Accept API key from header, query param, or Authorization Bearer token.
+  const headerKey = req.headers["x-api-key"];
+  const queryKey = req.query && (req.query.apikey || req.query.api_key);
+  const bearer = req.headers.authorization && req.headers.authorization.split(" ")[1];
+
+  const apiKey = headerKey || queryKey || bearer;
 
   if (!apiKey) {
     return res.status(401).json({
@@ -7,7 +12,7 @@ function apiKeyAuth(req, res, next) {
     });
   }
 
-  const validKeys = process.env.API_KEYS.split(",");
+  const validKeys = (process.env.API_KEYS || "").split(",");
 
   if (!validKeys.includes(apiKey)) {
     return res.status(403).json({
