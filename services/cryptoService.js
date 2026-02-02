@@ -1,8 +1,8 @@
 const axios = require("axios");
 const { setPrices } = require("../utils/cache");
 
-const COINGECKO_URL =
-  "https://api.coingecko.com/api/v3/coins/markets";
+const COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets";
+const API_KEY = process.env.COINGECKO_API_KEY; 
 
 let blockedUntil = 0;
 let isFetching = false;
@@ -21,16 +21,17 @@ async function fetchAndCachePrices() {
       params: {
         vs_currency: "usd",
         order: "market_cap_desc",
-        per_page: 50, // ⬅ reduce load
+        per_page: 100,
         page: 1,
-        sparkline: false
+        sparkline: false,
+        x_cg_demo_api_key: API_KEY,
+        sparkline: false,
       },
-      timeout: 15000
+      timeout: 15000,
     });
 
     setPrices(response.data);
     console.log("Crypto prices updated:", response.data.length);
-
   } catch (error) {
     if (error.response?.status === 429) {
       console.warn("Rate limited. Cooling down for 30 mins...");
@@ -44,5 +45,5 @@ async function fetchAndCachePrices() {
 }
 
 module.exports = {
-  fetchAndCachePrices
+  fetchAndCachePrices,
 };
